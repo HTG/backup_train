@@ -3,6 +3,17 @@
 import os
 import argparse
 import shutil
+import sys
+
+class DefaultHelpParser(argparse.ArgumentParser):
+  """
+  Provides a wrapper on ArgumentParser that prints help when there's an error
+  """
+  def error(self, message):
+    self.print_help()
+    print("====== Error =====")
+    print('error: %s\n' % message)
+    sys.exit(2)
 
 def throws(msg):
   """generic throws class for messages to reduce typing"""
@@ -69,17 +80,21 @@ def main():
 
   """
 
-  parser = argparse.ArgumentParser(description='Perform backups based on innobackupex')
-  parser.add_argument('-d','--directory',required=True,help="""
+  parser = DefaultHelpParser(description='Perform backups based on innobackupex')
+  required_args = parser.add_argument_group("required arguments")
+  optional_args = parser.add_argument_group("optional arguments")
+
+  required_args.add_argument('-d','--directory',required=True,help="""
       innobackupex backup directory to target;
       expects the directories to follow the innobackupex diretory date pattern
       """)
-  parser.add_argument('-p','--password',required=True,help='path to password file')
-  parser.add_argument('-b','--backup-type',dest="backup_type",required=False,help="the type of backup to perform; valid options are 'incremental' or 'full', the default is incremental",default="incremental")
-  parser.add_argument('-s','--bucket',dest="bucket",required=True,help="the name of the S3 bucket to place the backups in")
-  parser.add_argument('--no-remove',dest="remove",required=False,help="do not remove the last backup present in the directory",action="store_false",default=True)
-  parser.add_argument('--test',required=False,help="executes in test mode. no changes are made to the system, only commands are generated",default=False,action="store_true")
-  parser.add_argument('--verbose',required=False,help="increases verbosity",default=False,action="store_true")
+  required_args.add_argument('-p','--password',required=True,help='path to password file')
+  required_args.add_argument('-s','--bucket',dest="bucket",required=True,help="the name of the S3 bucket to place the backups in")
+
+  optional_args.add_argument('-b','--backup-type',dest="backup_type",required=False,help="the type of backup to perform; valid options are 'incremental' or 'full', the default is 'incremental'",default="incremental")
+  optional_args.add_argument('--no-remove',dest="remove",required=False,help="do not remove the last backup present in the directory",action="store_false",default=True)
+  optional_args.add_argument('--test',required=False,help="executes in test mode. no changes are made to the system, only commands are generated",default=False,action="store_true")
+  optional_args.add_argument('--verbose',required=False,help="increases verbosity",default=False,action="store_true")
 
   args = parser.parse_args()
 
