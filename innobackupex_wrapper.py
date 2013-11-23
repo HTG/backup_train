@@ -55,7 +55,7 @@ def debug_print(msg,should_print):
   if should_print == True:
     print(msg)
 
-def exeucte_command(cmd,is_test_mode):
+def execute_command(cmd,is_test_mode):
   return_value = 0
   try:
     if is_test_mode:
@@ -75,7 +75,7 @@ def main():
   2. backup -->
    - inrcremental: genarate a new backup based on 'base_backup_dir', store in 'new_backup_dir'
    - full: generate a new backup in 'base_backup_dir', store in 'new_backup_dir'
-  3. copy 'new_backup_dir' to S3, full backups are postfixed with "<backupname>-full"
+  3. copy 'new_backup_dir' to S3, full backups are postfixed with "<backupname>-FULL"
   4. remove the oldest backup directory 'oldest_backup_dir'
 
   """
@@ -124,7 +124,7 @@ def main():
     # innobackupex --incremental /data/backup --password='zzzzzzzzzzzzzz' --incremental-basedir=/data/backup/2013-11-21_22-50-22
     backup_cmd = "innobackupex --incremental %s --password='%s' --incremental-basedir=%s" % (backup_directory_path,password,os.path.join(backup_directory_path,base_backup_dir))
     debug_print(backup_cmd,verbosity)
-    return_value = exeucte_command(backup_cmd,test_mode)
+    return_value = execute_command(backup_cmd,test_mode)
     if return_value != 0:
       throws("Backup did not execute successfully, executed %s, returned %d" % backup_cmd,return_value)
   ############################
@@ -135,7 +135,7 @@ def main():
     # 2.1 perform the backup
     backup_cmd = "innobackupex %s" % (backup_directory_path)
     debug_print(backup_cmd,verbosity)
-    return_value = exeucte_command(backup_cmd,test_mode)
+    return_value = execute_command(backup_cmd,test_mode)
     if return_value != 0:
       throws("Backup did not execute successfully, executed %s, returned %d" % backup_cmd,return_value)
 
@@ -143,7 +143,7 @@ def main():
     full_backup_dir = directory_entry(backup_directory_path,-1)
     backup_cmd = "innobackupex --apply-log %s" % os.path.join(backup_directory_path,full_backup_dir)
     debug_print(backup_cmd,verbosity)
-    return_value = exeucte_command(backup_cmd,test_mode)
+    return_value = execute_command(backup_cmd,test_mode)
     if return_value != 0:
       throws("Backup did not execute successfully, executed %s, returned %d" % backup_cmd,return_value)
   elif backup_type != None:
@@ -155,11 +155,11 @@ def main():
   new_backup_name = new_backup_dir
   # full backups get a special tag for ease of use
   if backup_type == "full":
-    new_backup_name += "-full"
+    new_backup_name += "-FULL"
   s3_cp_cmd = "aws s3 cp %s s3://%s/%s --recursive" % (os.path.join(backup_directory_path,new_backup_dir),bucket,new_backup_name)
 
   debug_print(s3_cp_cmd,verbosity)
-  return_value = exeucte_command(s3_cp_cmd,test_mode)
+  return_value = execute_command(s3_cp_cmd,test_mode)
 
   if return_value != 0:
     throws("S3 copy did not execute successfully, executed %s, returned %d" % (s3_cp_cmd, return_value))
