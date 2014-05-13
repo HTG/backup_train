@@ -150,7 +150,7 @@ def main():
     throws("Unknown backup " % backup_type)
 
   # 3. get the new backup new_backup_dir since it will now be the last item in the directory, copy to s3
-  # aws s3 cp 2013-11-23_15-38-07 s3://health-union-backups/2013-11-23_15-38-07 --recursive
+  # aws s3 cp 2013-11-23_15-38-07 s3://my-s3-backups/2013-11-23_15-38-07 --recursive
   new_backup_dir = directory_entry(backup_directory_path,-1)
   new_backup_name = new_backup_dir
   # full backups get a special tag for ease of use
