@@ -88,10 +88,11 @@ def main():
       innobackupex backup directory to target;
       expects the directories to follow the innobackupex diretory date pattern
       """)
+  required_args.add_argument('-u','--user',required=False,help='DB username to use')
   required_args.add_argument('-p','--password',required=True,help='path to password file')
   required_args.add_argument('-s','--bucket',dest="bucket",required=True,help="the name of the S3 bucket to place the backups in")
 
-  optional_args.add_argument('-b','--backup-type',dest="backup_type",required=False,help="the type of backup to perform; valid options are 'incremental' or 'full', the default is 'incremental'",default="incremental")
+  optional_args.add_argument('-b','--backup-type',dest="backup_type",required=False,help="the type of backup to perform; valid options are 'initial', 'incremental' or 'full', the default is 'incremental'",default="incremental")
   optional_args.add_argument('--no-remove',dest="remove",required=False,help="do not remove the last backup present in the directory",action="store_false",default=True)
   optional_args.add_argument('--test',required=False,help="executes in test mode. no changes are made to the system, only commands are generated",default=False,action="store_true")
   optional_args.add_argument('--verbose',required=False,help="increases verbosity",default=False,action="store_true")
@@ -100,6 +101,7 @@ def main():
 
   # get the required items
   backup_directory_path = args.directory
+  db_user = args.user
   password_file_path = args.password
   verbosity = args.verbose
   test_mode = args.test
@@ -107,12 +109,12 @@ def main():
   backup_type = args.backup_type
   bucket = args.bucket
 
+  if backup_type == "initial":
+  	remove_files = False
+
   debug_print("Arugments: ",verbosity)
   debug_print(args,verbosity)
 
-  # 1. determine the last backup directory
-  base_backup_dir = directory_entry(backup_directory_path,-1)
-  debug_print("backup dir: " + base_backup_dir, verbosity)
   password = read_password_from_file(password_file_path)
   debug_print("password: " + password, verbosity)
 
@@ -120,9 +122,15 @@ def main():
   # 2. Incremental (default) #
   ############################
   if backup_type == "incremental":
+    # 1. determine the last backup directory
+    base_backup_dir = directory_entry(backup_directory_path,-1)
+    debug_print("backup dir: " + base_backup_dir, verbosity)
+
     # 2. we get the new directory after we execute the backup by asking for the last directory
     # innobackupex --incremental /data/backup --password='zzzzzzzzzzzzzz' --incremental-basedir=/data/backup/2013-11-21_22-50-22
-    backup_cmd = "innobackupex --incremental %s --password='%s' --incremental-basedir=%s" % (backup_directory_path,password,os.path.join(backup_directory_path,base_backup_dir))
+    backup_cmd = "innobackupex --incremental --compact %s --password='%s' --incremental-basedir=%s" % (backup_directory_path,password,os.path.join(backup_directory_path,base_backup_dir))
+    if db_user:
+    	backup_cmd += " --user=%s" % (db_user)
     debug_print(backup_cmd,verbosity)
     return_value = execute_command(backup_cmd,test_mode)
     if return_value != 0:
@@ -130,22 +138,17 @@ def main():
   ############################
   # 2. Full backup           #
   ############################
-  elif backup_type == "full":
+  elif backup_type == "full" or backup_type == "initial":
     # 2. full backups are performed in 2 commands, we get the directory after executing the first
     # 2.1 perform the backup
-    backup_cmd = "innobackupex %s" % (backup_directory_path)
+    backup_cmd = "innobackupex --compact %s --password='%s'" % (backup_directory_path,password)
+    if db_user:
+    	backup_cmd += " --user=%s" % (db_user)
     debug_print(backup_cmd,verbosity)
     return_value = execute_command(backup_cmd,test_mode)
     if return_value != 0:
       throws("Backup did not execute successfully, executed %s, returned %d" % backup_cmd,return_value)
 
-    # 2.2 apply the backup log to the last new directory
-    full_backup_dir = directory_entry(backup_directory_path,-1)
-    backup_cmd = "innobackupex --apply-log %s" % os.path.join(backup_directory_path,full_backup_dir)
-    debug_print(backup_cmd,verbosity)
-    return_value = execute_command(backup_cmd,test_mode)
-    if return_value != 0:
-      throws("Backup did not execute successfully, executed %s, returned %d" % backup_cmd,return_value)
   elif backup_type != None:
     throws("Unknown backup " % backup_type)
 
